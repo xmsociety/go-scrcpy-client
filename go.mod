@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	fyne.io/fyne/v2 v2.2.3
-	github.com/zach-klippenstein/goadb v0.0.0-20201208042340-620e0e950ed7
+	github.com/xmsociety/adbutils v0.0.0-20220824050001-79ac44e8c83e
 )
 
 require (
@@ -29,8 +29,8 @@ require (
 	github.com/yuin/goldmark v1.4.0 // indirect
 	golang.org/x/image v0.0.0-20220601225756-64ec528b34cd // indirect
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
+	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
