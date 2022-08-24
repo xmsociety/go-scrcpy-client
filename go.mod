@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	fyne.io/fyne/v2 v2.2.3
-	github.com/xmsociety/adbutils v0.0.0-20220824050001-79ac44e8c83e
+	github.com/xmsociety/adbutils v0.0.0-20220824174147-65515a270edc
 )
 
 require (

@@ -76,7 +76,7 @@ func (control *ControlSender) Touch(x, y, action int) {
 	var data = []interface{}{
 		uint8(TypeInjectTOUCHEvent), // base
 		uint8(action),               // B 1 byte
-		uint64(-1),                  // q 8 byte
+		int64(-1),                   // q 8 byte
 		uint32(x),                   // i 4 byte
 		uint32(y),                   // i 4 byte
 		uint16(control.W),           // H 2 byte
