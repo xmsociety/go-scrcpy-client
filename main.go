@@ -1,25 +1,21 @@
 package main
 
 import (
-	//"fmt"
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/widget"
+	"go-scrcpy-client/ui"
+	"os"
 )
 
 func main() {
-	//fmt.Println(adb.adb)
-	a := app.New()
-	//client := *adb.Adb
-	w := a.NewWindow("Hello")
-
-	hello := widget.NewLabel("Hello Fyne!")
-	w.SetContent(container.NewVBox(
-		hello,
-		widget.NewButton("Hi!", func() {
-			hello.SetText("Welcome :)")
-		}),
-	))
-
+	a := app.NewWithID("go-scrcpy-client")
+	w := a.NewWindow("go-scrcpy-client")
+	ui.MainWindow(w)
+	w.Resize(fyne.Size{Width: 640, Height: 400})
+	w.CenterOnScreen()
 	w.ShowAndRun()
+	err := os.Unsetenv("FYNE_FONT")
+	if err != nil {
+		return
+	}
 }
