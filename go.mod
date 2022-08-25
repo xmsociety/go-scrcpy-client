@@ -4,7 +4,9 @@ go 1.17
 
 require (
 	fyne.io/fyne/v2 v2.2.3
+	github.com/ailumiyana/goav-incr v0.1.0
 	github.com/xmsociety/adbutils v0.0.0-20220824174147-65515a270edc
+	gocv.io/x/gocv v0.31.0
 )
 
 require (

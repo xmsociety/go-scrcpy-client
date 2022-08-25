@@ -13,3 +13,13 @@ Please check scrcpy server 1.20 source code: [Link](https://github.com/Genymobil
 - Core: [scrcpy](https://github.com/Genymobile/scrcpy)
 - Idea: [py-android-viewer](https://github.com/razumeiko/py-android-viewer)
 - CI: [index.py](https://github.com/index-py/index.py)
+
+## env 
+```bash
+require ffmpeg
+export FFMPEG_ROOT=/usr/local/Cellar/ffmpeg/5.0.1/
+export CGO_LDFLAGS="-L$FFMPEG_ROOT/lib/ -lavcodec -lavformat -lavutil -lswscale -lswresample -lavdevice -lavfilter"
+export CGO_CFLAGS="-I$FFMPEG_ROOT/include"
+export LD_LIBRARY_PATH=/usr/local/Cellar/ffmpeg/5.0.1/lib
+
+```

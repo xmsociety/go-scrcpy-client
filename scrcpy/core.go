@@ -1,11 +1,14 @@
 package scrcpy
 
+import "C"
 import (
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/xmsociety/adbutils"
+	"go-scrcpy-client/scrcpy/h264"
+	"gocv.io/x/gocv"
 	"io"
 	"log"
 	"net"
@@ -159,6 +162,7 @@ func (client *Client) Start() {
 	client.initServerConnection()
 	client.Alive = true
 	client.streamLoop()
+
 }
 
 func (client *Client) Stop() {
@@ -169,21 +173,30 @@ func (client *Client) Stop() {
 }
 
 func (client *Client) streamLoop() {
-	// TODO decode h264
-	//dec, err := NewH264Decoder(pps)
+	codec, err := h264.NewDecoder(h264.PixelFormatRGB)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	// noqa 看起来不错
+	// TODO need fix -> could not determine kind of name for C.sws_addVec
 	for client.Alive {
 		buf := readFully(client.videoSocket, 0x10000)
-		//for i, n := range nal[1:] {
-		//	img, err := dec.Decode(n)
-		//	if err != nil {
-		//		continue
-		//	}
-		fmt.Println(buf)
-		if len(buf) == 0 {
-			time.Sleep(time.Second * 1)
+		frames, err := codec.Decode(buf[:0x10000])
+		if err != nil {
+			log.Println(err.Error())
 		}
-		time.Sleep(time.Microsecond * 100)
-		//client.VideoSender <- struct {
-		//}{}
+		if len(frames) == 0 {
+			log.Println("no frames")
+		} else {
+			for _, frame := range frames {
+				img, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
+				if img.Empty() {
+					continue
+				}
+				client.VideoSender <- img
+			}
+			log.Printf(fmt.Sprintf("found %d frames", len(frames)))
+			time.Sleep(time.Microsecond * 100)
+		}
 	}
 }
