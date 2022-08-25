@@ -173,6 +173,7 @@ func (client *Client) Stop() {
 }
 
 func (client *Client) streamLoop() {
+	// thanks https://github.com/mike1808/h264decoder totaly what I want
 	codec, err := h264.NewDecoder(h264.PixelFormatRGB)
 	if err != nil {
 		log.Println(err.Error())
@@ -181,7 +182,7 @@ func (client *Client) streamLoop() {
 	// TODO need fix -> could not determine kind of name for C.sws_addVec
 	for client.Alive {
 		buf := readFully(client.videoSocket, 0x10000)
-		frames, err := codec.Decode(buf[:0x10000])
+		frames, err := codec.Decode(buf)
 		if err != nil {
 			log.Println(err.Error())
 		}
