@@ -177,7 +177,7 @@ func (client *Client) Stop() {
 
 func (client *Client) streamLoop() {
 	// thanks https://github.com/mike1808/h264decoder totaly what I want
-	codec, err := h264.NewDecoder(h264.PixelFormatRGB)
+	codec, err := h264.NewDecoder(h264.PixelFormatBGR)
 	if err != nil {
 		log.Println(err.Error())
 	}

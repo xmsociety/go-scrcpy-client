@@ -92,7 +92,7 @@ func ClientStart(imageLable *canvas.Image, w fyne.Window) {
 func sendImage(imageLable *canvas.Image, w fyne.Window, client *scrcpy.Client) {
 	for {
 		img := <-VideoTransfer
-		// TODO 颜色不对
+		// h264.NewDecoder(h264.PixelFormatBGR) 拿出来BGR
 		imageLable.Image = img
 		imageLable.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		w.Resize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
