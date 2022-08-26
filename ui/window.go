@@ -94,6 +94,7 @@ func sendImage(imageLable *canvas.Image, w fyne.Window, client *scrcpy.Client) {
 		img := <-VideoTransfer
 		// TODO 颜色不对
 		imageLable.Image = img
+		imageLable.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		w.Resize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		imageLable.Refresh()
 	}
