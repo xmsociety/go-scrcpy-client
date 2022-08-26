@@ -281,6 +281,8 @@ github.com/tevino/abool v1.2.0/go.mod h1:qc66Pna1RiIsPa7O4Egxxs9OqkuxDX55zznh9K0
 github.com/urfave/cli/v2 v2.4.0/go.mod h1:NX9W0zmTvedE5oDoOMs2RTC8RvdK98NTYZE5LbaEYPg=
 github.com/xmsociety/adbutils v0.0.0-20220824174147-65515a270edc h1:w0Vdn6Q6bYuXDHHlYeuarjbzinkHl/lGmfO26l4anHM=
 github.com/xmsociety/adbutils v0.0.0-20220824174147-65515a270edc/go.mod h1:+RNcMasSzFiDKw8gq+cVHpB70pGzQ0nm5GZHKRZNMwE=
+github.com/xmsociety/adbutils v0.0.0-20220824193335-22552ec47ae5 h1:sx8iFS7iWnV1RE7stXVCWGRR7FS78IBmWU9j92mDrAQ=
+github.com/xmsociety/adbutils v0.0.0-20220824193335-22552ec47ae5/go.mod h1:+RNcMasSzFiDKw8gq+cVHpB70pGzQ0nm5GZHKRZNMwE=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

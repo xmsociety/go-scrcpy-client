@@ -3,8 +3,12 @@ package ui
 import (
 	"fmt"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/xmsociety/adbutils"
+	"go-scrcpy-client/scrcpy"
+	"image"
 	"time"
 )
 
@@ -16,6 +20,8 @@ var headersMap = map[int]string{
 	4: "Operate",
 	5: "Other",
 }
+
+var VideoTransfer = make(chan image.Image)
 
 func MainWindow(w fyne.Window) {
 	w.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("File",
@@ -55,13 +61,40 @@ func MainWindow(w fyne.Window) {
 	allStartBtn := widget.NewButton("All Start", func() {})
 	allStopBtn := widget.NewButton("All Stop", func() {})
 
+	imageLable := canvas.NewImageFromImage(nil)
+
+	//container.NewBorder(nil, nil, nil, nil, imageLable)
 	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
-	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
+	//w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
+	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, imageLable))
 	w.SetMaster()
+	go ClientStart(imageLable, w)
 }
 
 func setCurrentTime(head *widget.Label) {
 	for {
 		head.SetText(fmt.Sprintf("Current Time: %v", time.Now().Format("2006-01-02 15:04:05")))
+	}
+}
+
+func ClientStart(imageLable *canvas.Image, w fyne.Window) {
+	adb := adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
+	snNtid := adbutils.SerialNTransportID{
+		Serial: "127.0.0.1:5555",
+	}
+	fmt.Println(adb.Device(snNtid).SayHello())
+	client := scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
+	go sendImage(imageLable, w, &client)
+	go client.Start()
+
+}
+
+func sendImage(imageLable *canvas.Image, w fyne.Window, client *scrcpy.Client) {
+	for {
+		img := <-VideoTransfer
+		// TODO 颜色不对
+		imageLable.Image = img
+		w.Resize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
+		imageLable.Refresh()
 	}
 }

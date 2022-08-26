@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/xmsociety/adbutils"
 	"go-scrcpy-client/scrcpy"
+
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestEquaBuf(t *testing.T) {
 func TestConnect(t *testing.T) {
 	adb := adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
 	snNtid := adbutils.SerialNTransportID{
-		Serial: "192.168.0.107:5555",
+		Serial: "127.0.0.1:5555",
 	}
 	//adb.Connect("emulator-5554")
 	fmt.Println(adb.Device(snNtid).SayHello())

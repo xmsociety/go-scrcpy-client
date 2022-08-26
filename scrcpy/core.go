@@ -9,6 +9,7 @@ import (
 	"github.com/xmsociety/adbutils"
 	"go-scrcpy-client/scrcpy/h264"
 	"gocv.io/x/gocv"
+	"image"
 	"io"
 	"log"
 	"net"
@@ -61,8 +62,8 @@ type Client struct {
 	serverStream          adbutils.AdbConnection
 	videoSocket           net.Conn
 	controlSocket         net.Conn
-	VideoSender           chan<- interface{}
-	resolution
+	VideoSender           chan<- image.Image
+	Resolution            resolution
 }
 
 func readFully(conn net.Conn, n int) []byte {
@@ -151,10 +152,12 @@ func (client *Client) initServerConnection() {
 	resBuf := readFully(client.videoSocket, 4)
 	r := bytes.NewReader(resBuf)
 
-	if err := binary.Read(r, binary.BigEndian, &client.resolution); err != nil {
+	resolutionTmp := resolution{}
+	if err := binary.Read(r, binary.BigEndian, &resolutionTmp); err != nil {
 		fmt.Println("binary.Read failed:", err)
 	}
-	log.Println(client.resolution)
+	client.Resolution = resolutionTmp
+	log.Println(client.Resolution)
 }
 
 func (client *Client) Start() {
@@ -190,11 +193,17 @@ func (client *Client) streamLoop() {
 			log.Println("no frames")
 		} else {
 			for _, frame := range frames {
-				img, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
-				if img.Empty() {
+				imgCv, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
+				if imgCv.Empty() {
+					log.Println("empty")
 					continue
 				}
-				client.VideoSender <- img
+				imageRGB, err := imgCv.ToImage()
+				if err != nil {
+					log.Println(err.Error())
+					continue
+				}
+				client.VideoSender <- imageRGB
 			}
 			log.Printf(fmt.Sprintf("found %d frames", len(frames)))
 			time.Sleep(time.Microsecond * 100)

@@ -16,10 +16,14 @@ Please check scrcpy server 1.20 source code: [Link](https://github.com/Genymobil
 
 ## env 
 ```bash
-require ffmpeg
-export FFMPEG_ROOT=/usr/local/Cellar/ffmpeg/5.0.1/
+require ffmpeg < 5
+
+export FFMPEG_ROOT=/usr/local/opt/ffmpeg@4
 export CGO_LDFLAGS="-L$FFMPEG_ROOT/lib/ -lavcodec -lavformat -lavutil -lswscale -lswresample -lavdevice -lavfilter"
 export CGO_CFLAGS="-I$FFMPEG_ROOT/include"
-export LD_LIBRARY_PATH=/usr/local/Cellar/ffmpeg/5.0.1/lib
+export LDFLAGS="-L/usr/local/opt/ffmpeg@4/lib"
+export CPPFLAGS="-I/usr/local/opt/ffmpeg@4/include"
+export LD_LIBRARY_PATH=/usr/local/opt/ffmpeg@4/lib
+export PKG_CONFIG_PATH="/usr/local/opt/ffmpeg@4/lib/pkgconfig"
 
 ```
