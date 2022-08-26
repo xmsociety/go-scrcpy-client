@@ -9,35 +9,106 @@ import (
 	"github.com/xmsociety/adbutils"
 	"go-scrcpy-client/scrcpy"
 	"image"
+	"log"
 	"time"
 )
 
-var headersMap = map[int]string{
-	0: "id",
-	1: "Device",
-	2: "SerialNum",
-	3: "RunMode",
-	4: "Operate",
-	5: "Other",
+var (
+	headersMap = map[int]string{
+		0: "id",
+		1: "Device",
+		2: "SerialNum",
+		3: "RunMode",
+		4: "Operate",
+		5: "Other",
+	}
+	VideoTransfer = make(chan image.Image)
+)
+
+type ClientWithUi struct {
+	Client *scrcpy.Client
 }
 
-// 鼠标键盘事件 绑定到某个widget 或者 container  很垃圾
-type Image struct {
+func (c *ClientWithUi) SetClient(serial string) {
+	if serial == "" {
+		serial = "127.0.0.1:5555"
+	}
+	adb := adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
+	snNtid := adbutils.SerialNTransportID{
+		Serial: serial,
+	}
+	fmt.Println(adb.Device(snNtid).SayHello())
+	client := scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
+	c.Client = &client
 }
 
-//左键点击
-func (i *Image) Tapped(e *fyne.PointEvent) {
+func (c *ClientWithUi) Start() {
+	c.Client.Start()
+}
+
+type OverRideImageWidget struct {
+	widget.BaseWidget
+	Image  *canvas.Image
+	Client *scrcpy.Client
+}
+
+func (o *OverRideImageWidget) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(o.Image)
+}
+
+func NewOverRideImageWidget(img image.Image, client *scrcpy.Client) *OverRideImageWidget {
+	w := &OverRideImageWidget{Image: canvas.NewImageFromImage(img), Client: client}
+	w.ExtendBaseWidget(w)
+	return w
+}
+
+// Tapped 左键点击
+func (o *OverRideImageWidget) Tapped(e *fyne.PointEvent) {
 	fmt.Println("Tapped")
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	if o.Client.Control.ControlConn == nil {
+		log.Println("o.Client.Control.ControlConn is nil")
+		return
+	}
+	o.Client.Control.Touch(int(e.Position.X), int(e.Position.Y), scrcpy.ActionDown)
+	o.Client.Control.Touch(int(e.Position.X), int(e.Position.Y), scrcpy.ActionUp)
 }
 
-//左键双击
-func (i *Image) DoubleTapped(e *fyne.PointEvent) {
+// DoubleTapped 左键双击
+func (o *OverRideImageWidget) DoubleTapped(e *fyne.PointEvent) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	if o.Client.Control.ControlConn == nil {
+		log.Println("o.Client.Control.ControlConn is nil")
+		return
+	}
 	fmt.Println("DoubleTapped")
 }
 
-// 鼠标键盘事件 end
+// TappedSecondary 右键点击
+func (o *OverRideImageWidget) TappedSecondary(e *fyne.PointEvent) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	if o.Client.Control.ControlConn == nil {
+		log.Println("o.Client.Control.ControlConn is nil")
+		return
+	}
+	fmt.Println("TappedSecondary")
+}
 
-var VideoTransfer = make(chan image.Image)
+func (o *OverRideImageWidget) Refresh() {
+	canvas.Refresh(o)
+}
 
 func MainWindow(w fyne.Window) {
 	w.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("File",
@@ -77,14 +148,15 @@ func MainWindow(w fyne.Window) {
 	allStartBtn := widget.NewButton("All Start", func() {})
 	allStopBtn := widget.NewButton("All Stop", func() {})
 
-	imageLabel := canvas.NewImageFromImage(nil)
+	c := ClientWithUi{}
+	c.SetClient("")
 
-	//container.NewBorder(nil, nil, nil, nil, imageLabel)
+	imageLabel := NewOverRideImageWidget(nil, c.Client)
 	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
-	//w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
 	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, imageLabel))
 	w.SetMaster()
-	go ClientStart(imageLabel, w)
+	go c.Start()
+	go sendImage(imageLabel, w, c.Client)
 }
 
 func setCurrentTime(head *widget.Label) {
@@ -93,24 +165,12 @@ func setCurrentTime(head *widget.Label) {
 	}
 }
 
-func ClientStart(imageLabel *canvas.Image, w fyne.Window) {
-	adb := adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
-	snNtid := adbutils.SerialNTransportID{
-		Serial: "127.0.0.1:5555",
-	}
-	fmt.Println(adb.Device(snNtid).SayHello())
-	client := scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
-	go sendImage(imageLabel, w, &client)
-	go client.Start()
-
-}
-
-func sendImage(imageLabel *canvas.Image, w fyne.Window, client *scrcpy.Client) {
+func sendImage(imageLabel *OverRideImageWidget, w fyne.Window, client *scrcpy.Client) {
 	for {
 		img := <-VideoTransfer
 		// h264.NewDecoder(h264.PixelFormatBGR) 拿出来BGR
-		imageLabel.Image = img
-		imageLabel.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
+		imageLabel.Image.Image = img
+		imageLabel.Image.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		w.Resize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		imageLabel.Refresh()
 	}

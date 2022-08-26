@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/xmsociety/adbutils"
 	"log"
 	"math"
+	"net"
 	"sync"
 	"time"
 )
 
 type ControlSender struct {
-	ControlConn *adbutils.AdbConnection
+	ControlConn net.Conn
 	W           int
 	H           int
 	Lock        sync.Mutex
@@ -37,7 +37,7 @@ func (control *ControlSender) Keycode(keyCode, action, repeat int) {
 			return
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send Keycode error! ", err.Error())
 		return
@@ -60,7 +60,7 @@ func (control *ControlSender) Text(text string) {
 		}
 	}
 	msg := append(buf.Bytes(), []byte(text)...)
-	_, err := control.ControlConn.Conn.Write(msg)
+	_, err := control.ControlConn.Write(msg)
 	if err != nil {
 		log.Fatal("send Text error! ", err.Error())
 		return
@@ -90,9 +90,9 @@ func (control *ControlSender) Touch(x, y, action int) {
 			fmt.Println("Touch binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send Touch error! ", err.Error())
+		log.Println("send Touch error! ", err.Error())
 	}
 }
 
@@ -118,7 +118,7 @@ func (control *ControlSender) Scroll(x, y, h, v int) {
 			fmt.Println("TypeInjectTOUCHEvent binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send TypeInjectTOUCHEvent error! ", err.Error())
 		return
@@ -140,7 +140,7 @@ func (control *ControlSender) BackOrTurnScreenOn(action int) {
 			fmt.Println("TypeBACKORScreenON binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send TypeBACKORScreenON error! ", err.Error())
 		return
@@ -161,7 +161,7 @@ func (control *ControlSender) ExpandNotificationPanel() {
 			fmt.Println("ExpandNotificationPanel binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send ExpandNotificationPanel error! ", err.Error())
 		return
@@ -182,7 +182,7 @@ func (control *ControlSender) ExpandSettingsPanel() {
 			fmt.Println("TypeEXPANDSETTINGSPANEL binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send TypeEXPANDSETTINGSPANEL error! ", err.Error())
 		return
@@ -203,7 +203,7 @@ func (control *ControlSender) CollapsePanels() {
 			fmt.Println("TypeCOLLAPSEPANELS binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send TypeCOLLAPSEPANELS error! ", err.Error())
 		return
@@ -215,7 +215,7 @@ func (control *ControlSender) GetClipboard() string {
 	defer control.Lock.Unlock()
 	// TODO 清理之前的数据
 	//var buf bytes.Buffer
-	//_, err := io.Copy(&buf, control.ControlConn.Conn)
+	//_, err := io.Copy(&buf, control.ControlConn)
 	//if err != nil {
 	//	// Error handler
 	//}
@@ -229,12 +229,16 @@ func (control *ControlSender) GetClipboard() string {
 			log.Fatal("GetClipboard binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send GetClipboard error! ", err.Error())
 	}
 	var code *uint8
-	recvCodeBuf := control.ControlConn.Read(1)
+	recvCodeBuf := make([]byte, 1)
+	_, err = control.ControlConn.Read(recvCodeBuf)
+	if err != nil {
+		log.Println(err.Error())
+	}
 	readerCode := bytes.NewReader(recvCodeBuf)
 	err = binary.Read(readerCode, binary.BigEndian, &code)
 	if err != nil {
@@ -244,13 +248,22 @@ func (control *ControlSender) GetClipboard() string {
 		log.Fatal("GetClipboard binary.Read failed: code != 0", err.Error())
 	}
 	var length *uint32
-	recvlengthBuf := control.ControlConn.Read(4)
+	recvlengthBuf := make([]byte, 4)
+	_, err = control.ControlConn.Read(recvlengthBuf)
+	if err != nil {
+		log.Println(err.Error())
+	}
 	readerLength := bytes.NewReader(recvlengthBuf)
 	err = binary.Read(readerLength, binary.BigEndian, &length)
 	if err != nil {
 		log.Fatal("GetClipboard binary.Read failed:", err.Error())
 	}
-	return control.ControlConn.ReadString(int(*length))
+	lengthBuf := make([]byte, int(*length))
+	_, err = control.ControlConn.Read(lengthBuf)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	return string(lengthBuf)
 }
 
 func (control *ControlSender) SetClipBoard(text string, pasted bool) {
@@ -270,7 +283,7 @@ func (control *ControlSender) SetClipBoard(text string, pasted bool) {
 		}
 	}
 	msg := append(buf.Bytes(), []byte(text)...)
-	_, err := control.ControlConn.Conn.Write(msg)
+	_, err := control.ControlConn.Write(msg)
 	if err != nil {
 		log.Fatal("send SetClipBoard error! ", err.Error())
 		return
@@ -293,7 +306,7 @@ func (control *ControlSender) SetScreenPowerMode(mode int) {
 			fmt.Println("SetScreenPowerMode binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send SetScreenPowerMode error! ", err.Error())
 		return
@@ -315,7 +328,7 @@ func (control *ControlSender) RotateDevice() {
 			fmt.Println("RotateDevice binary.Write failed:", err)
 		}
 	}
-	_, err := control.ControlConn.Conn.Write(buf.Bytes())
+	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
 		log.Fatal("send RotateDevice error! ", err.Error())
 		return

@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -64,6 +65,7 @@ type Client struct {
 	controlSocket         net.Conn
 	VideoSender           chan<- image.Image
 	Resolution            resolution
+	Control               ControlSender
 }
 
 func readFully(conn net.Conn, n int) []byte {
@@ -157,6 +159,12 @@ func (client *Client) initServerConnection() {
 		fmt.Println("binary.Read failed:", err)
 	}
 	client.Resolution = resolutionTmp
+	client.Control = ControlSender{
+		ControlConn: client.controlSocket,
+		W:           int(client.Resolution.W),
+		H:           int(client.Resolution.H),
+		Lock:        sync.Mutex{},
+	}
 	log.Println(client.Resolution)
 }
 
