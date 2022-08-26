@@ -202,6 +202,8 @@ func (client *Client) streamLoop() {
 		} else {
 			for _, frame := range frames {
 				client.Resolution = resolution{W: uint16(frame.Width), H: uint16(frame.Height)}
+				client.Control.W = frame.Width
+				client.Control.H = frame.Height
 				imgCv, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
 				if imgCv.Empty() {
 					log.Println("empty")
