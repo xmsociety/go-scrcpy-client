@@ -36,7 +36,7 @@ func MainWindow(w fyne.Window) {
 	head := widget.NewLabel(fmt.Sprintf("Current Time: %v ", time.Now().Format("2006-01-02 15:04:05")))
 	go setCurrentTime(head)
 	headers := widget.NewTable(
-		func() (int, int) { return 1, 6 },
+		func() (int, int) { return 1, len(headersMap) },
 		func() fyne.CanvasObject {
 			return widget.NewLabel("placeholder")
 		},
@@ -45,7 +45,7 @@ func MainWindow(w fyne.Window) {
 			c.(*widget.Label).SetText(headersMap[id.Col])
 		})
 	table := widget.NewTable(
-		func() (int, int) { return 1, 6 },
+		func() (int, int) { return 1, len(headersMap) },
 		func() fyne.CanvasObject {
 			return widget.NewLabel("")
 		},
@@ -53,7 +53,7 @@ func MainWindow(w fyne.Window) {
 			text := fmt.Sprintf("Cell %d, %d", id.Row, id.Col)
 			c.(*widget.Label).SetText(text)
 		})
-	for i := 0; i < 7; i++ {
+	for i := 0; i < len(headersMap); i++ {
 		table.SetColumnWidth(i, 100)
 	}
 
