@@ -21,6 +21,22 @@ var headersMap = map[int]string{
 	5: "Other",
 }
 
+// 鼠标键盘事件 绑定到某个widget 或者 container  很垃圾
+type Image struct {
+}
+
+//左键点击
+func (i *Image) Tapped(e *fyne.PointEvent) {
+	fmt.Println("Tapped")
+}
+
+//左键双击
+func (i *Image) DoubleTapped(e *fyne.PointEvent) {
+	fmt.Println("DoubleTapped")
+}
+
+// 鼠标键盘事件 end
+
 var VideoTransfer = make(chan image.Image)
 
 func MainWindow(w fyne.Window) {
@@ -61,14 +77,14 @@ func MainWindow(w fyne.Window) {
 	allStartBtn := widget.NewButton("All Start", func() {})
 	allStopBtn := widget.NewButton("All Stop", func() {})
 
-	imageLable := canvas.NewImageFromImage(nil)
+	imageLabel := canvas.NewImageFromImage(nil)
 
-	//container.NewBorder(nil, nil, nil, nil, imageLable)
+	//container.NewBorder(nil, nil, nil, nil, imageLabel)
 	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
 	//w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
-	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, imageLable))
+	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, imageLabel))
 	w.SetMaster()
-	go ClientStart(imageLable, w)
+	go ClientStart(imageLabel, w)
 }
 
 func setCurrentTime(head *widget.Label) {
@@ -77,25 +93,25 @@ func setCurrentTime(head *widget.Label) {
 	}
 }
 
-func ClientStart(imageLable *canvas.Image, w fyne.Window) {
+func ClientStart(imageLabel *canvas.Image, w fyne.Window) {
 	adb := adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
 	snNtid := adbutils.SerialNTransportID{
 		Serial: "127.0.0.1:5555",
 	}
 	fmt.Println(adb.Device(snNtid).SayHello())
 	client := scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
-	go sendImage(imageLable, w, &client)
+	go sendImage(imageLabel, w, &client)
 	go client.Start()
 
 }
 
-func sendImage(imageLable *canvas.Image, w fyne.Window, client *scrcpy.Client) {
+func sendImage(imageLabel *canvas.Image, w fyne.Window, client *scrcpy.Client) {
 	for {
 		img := <-VideoTransfer
 		// h264.NewDecoder(h264.PixelFormatBGR) 拿出来BGR
-		imageLable.Image = img
-		imageLable.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
+		imageLabel.Image = img
+		imageLabel.SetMinSize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
 		w.Resize(fyne.NewSize(float32(client.Resolution.W), float32(client.Resolution.H)))
-		imageLable.Refresh()
+		imageLabel.Refresh()
 	}
 }
