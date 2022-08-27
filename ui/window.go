@@ -19,9 +19,10 @@ var (
 		1: "check",
 		2: "NickName",
 		3: "SerialNum",
-		4: "RunMode",
-		5: "Operate",
-		6: "Other",
+		4: "Run",
+		5: "RunMode",
+		6: "Operate",
+		7: "Other",
 	}
 	devicesList = make([]map[int]interface{}, 0)
 	adb         = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
@@ -39,14 +40,6 @@ func NewClient(sn string, VideoTransfer chan image.Image) *scrcpy.Client {
 		Serial: sn,
 	}
 	return &scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
-}
-
-func tableSelected(id widget.TableCellID) {
-	fmt.Println(id)
-}
-
-func tableUnSelected(id widget.TableCellID) {
-	fmt.Println(id)
 }
 
 func MainWindow(w fyne.Window) {
@@ -79,6 +72,7 @@ func MainWindow(w fyne.Window) {
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
+				widget.NewButton(Run, func() { fmt.Println("Init Run") }),
 				widget.NewButton(Edit, func() { fmt.Println("Init Edit") }),
 				widget.NewButton(Show, func() { fmt.Println("Init Show") }),
 			)
@@ -99,9 +93,12 @@ func MainWindow(w fyne.Window) {
 						labObj.SetText(device[id.Col].(*widget.Label).Text)
 					case *widget.Button:
 						buttonObj := obj.(*widget.Button)
-						if id.Col == 6 {
+						if id.Col == 7 {
 							sn := devicesList[id.Row][2].(*widget.Label).Text
 							buttonObj.SetText(textMap[sn][Show])
+						} else if id.Col == 5 {
+							sn := devicesList[id.Row][2].(*widget.Label).Text
+							buttonObj.SetText(textMap[sn][Run])
 						}
 						buttonObj.OnTapped = device[id.Col].(*widget.Button).OnTapped
 					case *widget.CheckGroup:
@@ -115,10 +112,6 @@ func MainWindow(w fyne.Window) {
 			}
 
 		})
-	// bind event
-	table.OnSelected = tableSelected
-	table.OnUnselected = tableUnSelected
-
 	for i := 0; i < len(headersMap); i++ {
 		headers.SetColumnWidth(i, 120)
 		table.SetColumnWidth(i, 120)
@@ -127,7 +120,6 @@ func MainWindow(w fyne.Window) {
 	selectRadio := widget.NewRadioGroup([]string{SelectAll}, func(s string) {})
 	allStartBtn := widget.NewButton(AllStart, func() {})
 	allStopBtn := widget.NewButton(AllStop, func() {})
-	//imageLabel := NewOverRideImageWidget(nil, c.Client)
 	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
 	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
 	w.SetMaster()
@@ -155,6 +147,7 @@ func ListenDevice(table *widget.Table) {
 				textMap[d.Serial] = make(map[string]string, 0)
 				textMap[d.Serial][Show] = Show
 				textMap[d.Serial][Edit] = Edit
+				textMap[d.Serial][Run] = Run
 				textMap[d.Serial][Check] = False
 				liveMap[d.Serial] = nil
 				editMap[d.Serial] = nil
@@ -172,7 +165,16 @@ func ListenDevice(table *widget.Table) {
 				2: widget.NewLabel(d.Serial),      // sn
 				3: widget.NewLabel("placeholder"), // nick_name
 				4: widget.NewLabel("placeholder"), // run mode
-				5: widget.NewButton(Edit, func() {
+				5: widget.NewButton(Run, func() {
+					if textMap[d.Serial][Run] == Run {
+						textMap[d.Serial][Run] = Running
+						// TODO AI
+					} else {
+						textMap[d.Serial][Run] = Run
+					}
+					table.Refresh()
+				}), // run
+				6: widget.NewButton(Edit, func() {
 					func() {
 						if textMap[d.Serial][Edit] == Edit {
 							textMap[d.Serial][Edit] = EditIng
@@ -191,7 +193,7 @@ func ListenDevice(table *widget.Table) {
 						table.Refresh()
 					}()
 				}),
-				6: widget.NewButton(Show, func() {
+				7: widget.NewButton(Show, func() {
 					func() {
 						if textMap[d.Serial][Show] == Show {
 							textMap[d.Serial][Show] = Hide
@@ -256,4 +258,11 @@ func ListIn(item string) (in bool) {
 		}
 	}
 	return
+}
+
+func notification(title, content string) {
+	fyne.CurrentApp().SendNotification(&fyne.Notification{
+		Title:   title,
+		Content: content,
+	})
 }

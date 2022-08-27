@@ -6,6 +6,8 @@ const (
 	Live      = "Live"
 	Edit      = "Edit"
 	EditIng   = "EditIng"
+	Run       = "Run"
+	Running   = "Running"
 	Check     = "Check"
 	True      = "True"
 	False     = "False"

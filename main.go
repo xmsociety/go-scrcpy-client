@@ -14,7 +14,7 @@ func main() {
 	w := a.NewWindow("go-scrcpy-client")
 	a.SetIcon(ui.Logo)
 	ui.MainWindow(w)
-	w.Resize(fyne.Size{Width: 140 * 6.5, Height: 500})
+	w.Resize(fyne.Size{Width: 140 * 7, Height: 500})
 	w.SetFixedSize(true)
 	w.CenterOnScreen()
 	w.SetIcon(ui.Logo)
