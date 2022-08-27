@@ -175,45 +175,40 @@ func ListenDevice(table *widget.Table) {
 					table.Refresh()
 				}), // run
 				6: widget.NewButton(Edit, func() {
-					func() {
-						if textMap[d.Serial][Edit] == Edit {
-							textMap[d.Serial][Edit] = EditIng
-							w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Edit))
-							w.SetContent(EditWindow(d.Serial, w))
-							w.Show()
-							w.SetOnClosed(func() {
-								textMap[d.Serial][Edit] = Edit
-								table.Refresh()
-							})
-							editMap[d.Serial] = w
-						} else {
-							editMap[d.Serial].Close()
+					if textMap[d.Serial][Edit] == Edit {
+						textMap[d.Serial][Edit] = EditIng
+						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Edit))
+						w.SetContent(EditWindow(d.Serial, w))
+						w.Show()
+						w.SetOnClosed(func() {
 							textMap[d.Serial][Edit] = Edit
-						}
-						table.Refresh()
-					}()
+							table.Refresh()
+						})
+						editMap[d.Serial] = w
+					} else {
+						editMap[d.Serial].Close()
+						textMap[d.Serial][Edit] = Edit
+					}
+					table.Refresh()
 				}),
 				7: widget.NewButton(Show, func() {
-					func() {
-						if textMap[d.Serial][Show] == Show {
-							textMap[d.Serial][Show] = Hide
-							client := clientMap[d.Serial]
-							w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Live))
-							w.SetContent(ScreenWindow(w, client))
-							w.Show()
-							w.SetOnClosed(func() {
-								textMap[d.Serial][Show] = Show
-								client.Stop()
-								table.Refresh()
-							})
-							liveMap[d.Serial] = w
-						} else {
-							liveMap[d.Serial].Close()
+					if textMap[d.Serial][Show] == Show {
+						textMap[d.Serial][Show] = Hide
+						client := clientMap[d.Serial]
+						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Live))
+						w.SetContent(ScreenWindow(w, client))
+						w.Show()
+						w.SetOnClosed(func() {
 							textMap[d.Serial][Show] = Show
-						}
-
-						table.Refresh()
-					}()
+							client.Stop()
+							table.Refresh()
+						})
+						liveMap[d.Serial] = w
+					} else {
+						liveMap[d.Serial].Close()
+						textMap[d.Serial][Show] = Show
+					}
+					table.Refresh()
 				}),
 			}
 			devicesList = append(devicesList, device)
