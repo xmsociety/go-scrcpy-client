@@ -39,7 +39,7 @@ func (control *ControlSender) Keycode(keyCode, action, repeat int) {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send Keycode error! ", err.Error())
+		log.Println("send Keycode error! ", err.Error())
 		return
 	}
 }
@@ -62,7 +62,7 @@ func (control *ControlSender) Text(text string) {
 	msg := append(buf.Bytes(), []byte(text)...)
 	_, err := control.ControlConn.Write(msg)
 	if err != nil {
-		log.Fatal("send Text error! ", err.Error())
+		log.Println("send Text error! ", err.Error())
 		return
 	}
 
@@ -120,7 +120,7 @@ func (control *ControlSender) Scroll(x, y, h, v int) {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send TypeInjectTOUCHEvent error! ", err.Error())
+		log.Println("send TypeInjectTOUCHEvent error! ", err.Error())
 		return
 	}
 }
@@ -142,7 +142,7 @@ func (control *ControlSender) BackOrTurnScreenOn(action int) {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send TypeBACKORScreenON error! ", err.Error())
+		log.Println("send TypeBACKORScreenON error! ", err.Error())
 		return
 	}
 }
@@ -163,7 +163,7 @@ func (control *ControlSender) ExpandNotificationPanel() {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send ExpandNotificationPanel error! ", err.Error())
+		log.Println("send ExpandNotificationPanel error! ", err.Error())
 		return
 	}
 }
@@ -184,7 +184,7 @@ func (control *ControlSender) ExpandSettingsPanel() {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send TypeEXPANDSETTINGSPANEL error! ", err.Error())
+		log.Println("send TypeEXPANDSETTINGSPANEL error! ", err.Error())
 		return
 	}
 }
@@ -205,7 +205,7 @@ func (control *ControlSender) CollapsePanels() {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send TypeCOLLAPSEPANELS error! ", err.Error())
+		log.Println("send TypeCOLLAPSEPANELS error! ", err.Error())
 		return
 	}
 }
@@ -226,12 +226,12 @@ func (control *ControlSender) GetClipboard() string {
 	for _, v := range data {
 		err := binary.Write(buf, binary.BigEndian, v)
 		if err != nil {
-			log.Fatal("GetClipboard binary.Write failed:", err)
+			log.Println("GetClipboard binary.Write failed:", err)
 		}
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send GetClipboard error! ", err.Error())
+		log.Println("send GetClipboard error! ", err.Error())
 	}
 	var code *uint8
 	recvCodeBuf := make([]byte, 1)
@@ -242,10 +242,10 @@ func (control *ControlSender) GetClipboard() string {
 	readerCode := bytes.NewReader(recvCodeBuf)
 	err = binary.Read(readerCode, binary.BigEndian, &code)
 	if err != nil {
-		log.Fatal("GetClipboard binary.Read failed:", err.Error())
+		log.Println("GetClipboard binary.Read failed:", err.Error())
 	}
 	if *code != uint8(0) {
-		log.Fatal("GetClipboard binary.Read failed: code != 0", err.Error())
+		log.Println("GetClipboard binary.Read failed: code != 0", err.Error())
 	}
 	var length *uint32
 	recvlengthBuf := make([]byte, 4)
@@ -256,7 +256,7 @@ func (control *ControlSender) GetClipboard() string {
 	readerLength := bytes.NewReader(recvlengthBuf)
 	err = binary.Read(readerLength, binary.BigEndian, &length)
 	if err != nil {
-		log.Fatal("GetClipboard binary.Read failed:", err.Error())
+		log.Println("GetClipboard binary.Read failed:", err.Error())
 	}
 	lengthBuf := make([]byte, int(*length))
 	_, err = control.ControlConn.Read(lengthBuf)
@@ -285,7 +285,7 @@ func (control *ControlSender) SetClipBoard(text string, pasted bool) {
 	msg := append(buf.Bytes(), []byte(text)...)
 	_, err := control.ControlConn.Write(msg)
 	if err != nil {
-		log.Fatal("send SetClipBoard error! ", err.Error())
+		log.Println("send SetClipBoard error! ", err.Error())
 		return
 	}
 
@@ -308,7 +308,7 @@ func (control *ControlSender) SetScreenPowerMode(mode int) {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send SetScreenPowerMode error! ", err.Error())
+		log.Println("send SetScreenPowerMode error! ", err.Error())
 		return
 	}
 
@@ -330,7 +330,7 @@ func (control *ControlSender) RotateDevice() {
 	}
 	_, err := control.ControlConn.Write(buf.Bytes())
 	if err != nil {
-		log.Fatal("send RotateDevice error! ", err.Error())
+		log.Println("send RotateDevice error! ", err.Error())
 		return
 	}
 

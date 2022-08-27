@@ -63,7 +63,7 @@ type Client struct {
 	serverStream          adbutils.AdbConnection
 	videoSocket           net.Conn
 	controlSocket         net.Conn
-	VideoSender           chan<- image.Image
+	VideoSender           chan image.Image
 	Resolution            resolution
 	Control               ControlSender
 }
@@ -140,16 +140,16 @@ func (client *Client) initServerConnection() {
 		}
 	}
 	if client.videoSocket == nil {
-		log.Fatal("Failed to connect scrcpy-server after 3 seconds")
+		log.Println("Failed to connect scrcpy-server after 3 seconds")
 	}
 	buf := readFully(client.videoSocket, 1)
 	if buf == nil || len(buf) == 0 || buf[0] != []byte("\x00")[0] {
-		log.Fatal("Did not receive Dummy Byte!")
+		log.Println("Did not receive Dummy Byte!")
 	}
 	client.controlSocket = client.Device.CreateConnection(adbutils.LOCALABSTRACT, "scrcpy")
 	nameBuf := readFully(client.videoSocket, 64)
 	if nameBuf == nil || len(nameBuf) == 0 || strings.TrimSuffix(string(nameBuf), "\x00") == "" {
-		log.Fatal("Did not receive Device Name! err: ", nameBuf)
+		log.Println("Did not receive Device Name! err: ", nameBuf)
 	}
 	resBuf := readFully(client.videoSocket, 4)
 	r := bytes.NewReader(resBuf)
@@ -169,18 +169,24 @@ func (client *Client) initServerConnection() {
 }
 
 func (client *Client) Start() {
+	client.Alive = true
 	client.deployServer()
 	client.initServerConnection()
-	client.Alive = true
 	client.streamLoop()
 
 }
 
 func (client *Client) Stop() {
 	client.Alive = false
-	client.serverStream.Close()
-	client.controlSocket.Close()
-	client.videoSocket.Close()
+	if &client.serverStream != nil {
+		client.serverStream.Close()
+	}
+	if client.controlSocket != nil {
+		client.controlSocket.Close()
+	}
+	if client.videoSocket != nil {
+		client.videoSocket.Close()
+	}
 }
 
 func (client *Client) streamLoop() {
@@ -199,6 +205,7 @@ func (client *Client) streamLoop() {
 		}
 		if len(frames) == 0 {
 			log.Println("no frames")
+			break
 		} else {
 			for _, frame := range frames {
 				client.Resolution = resolution{W: uint16(frame.Width), H: uint16(frame.Height)}
