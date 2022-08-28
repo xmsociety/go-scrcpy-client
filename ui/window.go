@@ -91,9 +91,9 @@ func MainWindow(w fyne.Window) {
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
-				widget.NewButton(Run, func() { fmt.Println("Init Run") }),
-				widget.NewButton(Edit, func() { fmt.Println("Init Edit") }),
-				widget.NewButton(Show, func() { fmt.Println("Init Show") }),
+				NewButton(Run, func() { fmt.Println("Init Run") }),
+				NewButton(Edit, func() { fmt.Println("Init Edit") }),
+				NewButton(Show, func() { fmt.Println("Init Show") }),
 			)
 		},
 		// update
@@ -137,8 +137,8 @@ func MainWindow(w fyne.Window) {
 	}
 	go ListenDevice(table)
 	selectRadio := widget.NewRadioGroup([]string{SelectAll}, func(s string) {})
-	allStartBtn := widget.NewButton(AllStart, func() {})
-	allStopBtn := widget.NewButton(AllStop, func() {})
+	allStartBtn := NewButton(AllStart, func() {})
+	allStopBtn := NewButton(AllStop, func() {})
 	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
 	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
 	w.SetMaster()
@@ -186,7 +186,7 @@ func ListenDevice(table *widget.Table) {
 				2: widget.NewLabel(d.Serial),      // sn
 				3: widget.NewLabel("placeholder"), // nick_name
 				4: widget.NewLabel("placeholder"), // run mode
-				5: widget.NewButton(Run, func() {
+				5: NewButton(Run, func() {
 					if textMap[d.Serial][Run] == Run {
 						textMap[d.Serial][Run] = Running
 						// TODO AI
@@ -195,7 +195,7 @@ func ListenDevice(table *widget.Table) {
 					}
 					table.Refresh()
 				}), // run
-				6: widget.NewButton(Edit, func() {
+				6: NewButton(Edit, func() {
 					if textMap[d.Serial][Edit] == Edit {
 						textMap[d.Serial][Edit] = EditIng
 						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Edit))
@@ -212,7 +212,7 @@ func ListenDevice(table *widget.Table) {
 					}
 					table.Refresh()
 				}),
-				7: widget.NewButton(Show, func() {
+				7: NewButton(Show, func() {
 					if textMap[d.Serial][Show] == Show {
 						textMap[d.Serial][Show] = Hide
 						client := clientMap[d.Serial]
