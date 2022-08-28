@@ -151,8 +151,10 @@ func MainWindow(w fyne.Window) {
 
 func setCurrentTime(head *widget.Label) {
 	for {
-		head.SetText(fmt.Sprintf("Current Time: %v", time.Now().Format("2006-01-02 15:04:05")))
-		time.Sleep(time.Millisecond * 500)
+		select {
+		case now := <-time.Tick(time.Second * 1):
+			head.SetText(fmt.Sprintf("Current Time: %v", now.Format("2006-01-02 15:04:05")))
+		}
 	}
 }
 
