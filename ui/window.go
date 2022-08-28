@@ -26,12 +26,13 @@ var (
 		6: "Operate",
 		7: "Other",
 	}
-	devicesList = make([]map[int]interface{}, 0)
-	adb         = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
-	textMap     = make(map[string]map[string]string)
-	LiveMap     = make(map[string]fyne.Window)
-	editMap     = make(map[string]fyne.Window)
-	clientMap   = make(map[string]*scrcpy.Client)
+	devicesList    = make([]map[int]interface{}, 0)
+	adb            = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
+	textMap        = make(map[string]map[string]string)
+	LiveMap        = make(map[string]fyne.Window)
+	themeSettingOn = false
+	editMap        = make(map[string]fyne.Window)
+	clientMap      = make(map[string]*scrcpy.Client)
 )
 
 func NewClient(sn string, VideoTransfer chan image.Image, ErrReceiver chan error) *scrcpy.Client {
@@ -52,8 +53,10 @@ func MainWindow(w fyne.Window) {
 		// a quit item will be appended to our first menu
 	), fyne.NewMenu("Settings",
 		fyne.NewMenuItem("Theme", func() {
+			if themeSettingOn {
+				return
+			}
 			s := settings.NewSettings()
-			fmt.Println(fyne.CurrentApp().Settings().Theme())
 			appearance := s.LoadAppearanceScreen(w)
 			tabs := container.NewAppTabs(
 				&container.TabItem{Text: "Appearance", Icon: s.AppearanceIcon(), Content: appearance})
@@ -61,8 +64,10 @@ func MainWindow(w fyne.Window) {
 			themeWindow := fyne.CurrentApp().NewWindow("Theme Settings")
 			themeWindow.SetContent(tabs)
 			themeWindow.Show()
+			themeSettingOn = true
 			themeWindow.SetOnClosed(func() {
 				fmt.Println("close Theme Setting")
+				themeSettingOn = false
 			})
 			fmt.Println("Menu New")
 		}),
