@@ -64,6 +64,7 @@ type Client struct {
 	videoSocket           net.Conn
 	controlSocket         net.Conn
 	VideoSender           chan image.Image
+	ErrReceiver           chan error
 	Resolution            resolution
 	Control               ControlSender
 }
@@ -91,7 +92,7 @@ func readFully(conn net.Conn, n int) []byte {
 	return result.Bytes()
 }
 
-func (client *Client) deployServer() {
+func (client *Client) deployServer() bool {
 	jarName := "scrcpy-server.jar"
 	currentPath := getCurrentFile()
 	src, _ := filepath.Abs(path.Join(currentPath, jarName))
@@ -123,13 +124,14 @@ func (client *Client) deployServer() {
 		"-",       // Encoder name
 		"false",   // Power off screen after server closed
 	}
-	serverStream := client.Device.Shell(strings.Join(cmd, " "), true)
+	serverStream := client.Device.Shell(strings.Join(cmd, " "), true, 3)
 	client.serverStream = *serverStream.(*adbutils.AdbConnection)
-	res := client.serverStream.ReadString(100)
-	log.Println("deploy server res: ", res)
+	//res := client.serverStream.ReadString(100) wait serverStream ready
+	time.Sleep(time.Millisecond * 400)
+	return true
 }
 
-func (client *Client) initServerConnection() {
+func (client *Client) initServerConnection() bool {
 	if client.ConnectionTimeout == 0 {
 		client.ConnectionTimeout = 3000
 	}
@@ -137,26 +139,36 @@ func (client *Client) initServerConnection() {
 		client.videoSocket = client.Device.CreateConnection(adbutils.LOCALABSTRACT, "scrcpy")
 		if client.videoSocket != nil {
 			break
+		} else {
+			time.Sleep(time.Millisecond * 100)
 		}
 	}
 	if client.videoSocket == nil {
+		client.ErrReceiver <- errors.New("Failed to connect scrcpy-server after 3 seconds")
 		log.Println("Failed to connect scrcpy-server after 3 seconds")
+		return false
 	}
 	buf := readFully(client.videoSocket, 1)
 	if buf == nil || len(buf) == 0 || buf[0] != []byte("\x00")[0] {
+		client.ErrReceiver <- errors.New("Did not receive Dummy Byte!")
 		log.Println("Did not receive Dummy Byte!")
+		return false
 	}
 	client.controlSocket = client.Device.CreateConnection(adbutils.LOCALABSTRACT, "scrcpy")
 	nameBuf := readFully(client.videoSocket, 64)
 	if nameBuf == nil || len(nameBuf) == 0 || strings.TrimSuffix(string(nameBuf), "\x00") == "" {
+		client.ErrReceiver <- errors.New(fmt.Sprintf("Did not receive Device Name! err: %v", nameBuf))
 		log.Println("Did not receive Device Name! err: ", nameBuf)
+		return false
 	}
 	resBuf := readFully(client.videoSocket, 4)
 	r := bytes.NewReader(resBuf)
 
 	resolutionTmp := resolution{}
 	if err := binary.Read(r, binary.BigEndian, &resolutionTmp); err != nil {
+		client.ErrReceiver <- errors.New(fmt.Sprintf("binary.Read failed:: %v", err))
 		fmt.Println("binary.Read failed:", err)
+		return false
 	}
 	client.Resolution = resolutionTmp
 	client.Control = ControlSender{
@@ -166,12 +178,17 @@ func (client *Client) initServerConnection() {
 		Lock:        sync.Mutex{},
 	}
 	log.Println(client.Resolution)
+	return true
 }
 
 func (client *Client) Start() {
 	client.Alive = true
-	client.deployServer()
-	client.initServerConnection()
+	if !client.deployServer() {
+		return
+	}
+	if !client.initServerConnection() {
+		return
+	}
 	client.streamLoop()
 
 }
@@ -193,7 +210,9 @@ func (client *Client) streamLoop() {
 	// thanks https://github.com/mike1808/h264decoder totaly what I want
 	codec, err := h264.NewDecoder(h264.PixelFormatBGR)
 	if err != nil {
+		client.ErrReceiver <- err
 		log.Println(err.Error())
+		return
 	}
 	// noqa 看起来不错
 	// TODO need fix -> could not determine kind of name for C.sws_addVec
@@ -201,7 +220,10 @@ func (client *Client) streamLoop() {
 		buf := readFully(client.videoSocket, 0x10000)
 		frames, err := codec.Decode(buf)
 		if err != nil {
+			client.ErrReceiver <- err
 			log.Println(err.Error())
+			return
+
 		}
 		if len(frames) == 0 {
 			log.Println("no frames")

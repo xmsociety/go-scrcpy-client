@@ -27,3 +27,17 @@ export LD_LIBRARY_PATH=/usr/local/opt/ffmpeg@4/lib
 export PKG_CONFIG_PATH="/usr/local/opt/ffmpeg@4/lib/pkgconfig"
 
 ```
+## Run in mobile simulation
+There is a helpful mobile simulation mode that gives a hint of how your app would work on a mobile device:
+
+```bash
+$ go run -tags mobile main.go
+```
+Another option is to use fyne command, see Packaging for mobile.
+
+
+## build
+```bash
+go run main.go
+-ldflags -H=windowsgui
+```

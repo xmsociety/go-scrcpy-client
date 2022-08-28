@@ -1,19 +1,27 @@
 package ui
 
 const (
-	Show      = "Show"
-	Hide      = "Hide"
-	Live      = "Live"
-	Edit      = "Edit"
-	EditIng   = "EditIng"
-	Run       = "Run"
-	Running   = "Running"
-	Check     = "Check"
-	True      = "True"
-	False     = "False"
-	SelectAll = "Select All"
-	AllStart  = "All Start"
-	AllStop   = "All Stop"
-	OK        = "OK"
-	Cancel    = "cancel"
+	AppName          = "go scrcpy"
+	Width            = 140 * 7
+	Height           = 500
+	Show             = "Show"
+	Hide             = "Hide"
+	Live             = "Live"
+	Edit             = "Edit"
+	EditIng          = "EditIng"
+	Run              = "Run"
+	Running          = "Running"
+	Check            = "Check"
+	True             = "True"
+	False            = "False"
+	SelectAll        = "Select All"
+	AllStart         = "All Start"
+	AllStop          = "All Stop"
+	OK               = "OK"
+	Cancel           = "cancel"
+	Open             = "Open"
+	DialogWidth      = 300
+	DialogHeight     = 200
+	ScreenBaseWidth  = 480
+	ScreenBaseHeight = 640
 )

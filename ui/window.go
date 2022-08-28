@@ -3,9 +3,11 @@ package ui
 import (
 	"fmt"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/cmd/fyne_settings/settings"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/xmsociety/adbutils"
+
 	"go-scrcpy-client/scrcpy"
 	"image"
 	"sort"
@@ -27,30 +29,47 @@ var (
 	devicesList = make([]map[int]interface{}, 0)
 	adb         = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
 	textMap     = make(map[string]map[string]string)
-	liveMap     = make(map[string]fyne.Window)
+	LiveMap     = make(map[string]fyne.Window)
 	editMap     = make(map[string]fyne.Window)
 	clientMap   = make(map[string]*scrcpy.Client)
 )
 
-func NewClient(sn string, VideoTransfer chan image.Image) *scrcpy.Client {
+func NewClient(sn string, VideoTransfer chan image.Image, ErrReceiver chan error) *scrcpy.Client {
 	if sn == "" {
 		sn = "127.0.0.1:5555"
 	}
 	snNtid := adbutils.SerialNTransportID{
 		Serial: sn,
 	}
-	return &scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer}
+	return &scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer, ErrReceiver: ErrReceiver}
 }
 
 func MainWindow(w fyne.Window) {
-	w.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("File",
-		fyne.NewMenuItem("New", func() { fmt.Println("Menu New") }),
+	InitParent(w)
+	w.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("About",
+		fyne.NewMenuItem("about1", func() {}),
+		fyne.NewMenuItem("about2", func() {}),
 		// a quit item will be appended to our first menu
-	), fyne.NewMenu("Edit",
-		fyne.NewMenuItem("Cut", func() { fmt.Println("Menu Cut") }),
-		fyne.NewMenuItem("Copy", func() { fmt.Println("Menu Copy") }),
-		fyne.NewMenuItem("Paste", func() { fmt.Println("Menu Paste") }),
-	)))
+	), fyne.NewMenu("Settings",
+		fyne.NewMenuItem("Theme", func() {
+			s := settings.NewSettings()
+			fmt.Println(fyne.CurrentApp().Settings().Theme())
+			appearance := s.LoadAppearanceScreen(w)
+			tabs := container.NewAppTabs(
+				&container.TabItem{Text: "Appearance", Icon: s.AppearanceIcon(), Content: appearance})
+			tabs.SetTabLocation(container.TabLocationLeading)
+			themeWindow := fyne.CurrentApp().NewWindow("Theme Settings")
+			themeWindow.SetContent(tabs)
+			themeWindow.Show()
+			themeWindow.SetOnClosed(func() {
+				fmt.Println("close Theme Setting")
+			})
+			fmt.Println("Menu New")
+		}),
+	), fyne.NewMenu("Help",
+		fyne.NewMenuItem("", func() {
+		})),
+	))
 
 	head := widget.NewLabel(fmt.Sprintf("Current Time: %v ", time.Now().Format("2006-01-02 15:04:05")))
 	go setCurrentTime(head)
@@ -149,10 +168,11 @@ func ListenDevice(table *widget.Table) {
 				textMap[d.Serial][Edit] = Edit
 				textMap[d.Serial][Run] = Run
 				textMap[d.Serial][Check] = False
-				liveMap[d.Serial] = nil
+				LiveMap[d.Serial] = nil
 				editMap[d.Serial] = nil
 				ch := make(chan image.Image)
-				clientMap[d.Serial] = NewClient(d.Serial, ch)
+				errCh := make(chan error)
+				clientMap[d.Serial] = NewClient(d.Serial, ch, errCh)
 			}
 
 			device := map[int]interface{}{
@@ -203,9 +223,9 @@ func ListenDevice(table *widget.Table) {
 							client.Stop()
 							table.Refresh()
 						})
-						liveMap[d.Serial] = w
+						LiveMap[d.Serial] = w
 					} else {
-						liveMap[d.Serial].Close()
+						LiveMap[d.Serial].Close()
 						textMap[d.Serial][Show] = Show
 					}
 					table.Refresh()
@@ -253,11 +273,4 @@ func ListIn(item string) (in bool) {
 		}
 	}
 	return
-}
-
-func notification(title, content string) {
-	fyne.CurrentApp().SendNotification(&fyne.Notification{
-		Title:   title,
-		Content: content,
-	})
 }
