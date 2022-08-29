@@ -11,8 +11,14 @@ func SetupSystray(desk desktop.App, w fyne.Window) {
 	menu := fyne.NewMenu(AppName,
 		fyne.NewMenuItem(Open, w.Show),
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Tomato", func() {
-			// TODO FUNC
+		fyne.NewMenuItem("All Check", func() {
+			allCheck.SetChecked(!allCheck.Checked)
+		}),
+		fyne.NewMenuItem(AllStart, func() {
+			allStartBtn.Tapped(new(fyne.PointEvent))
+		}),
+		fyne.NewMenuItem(AllStop, func() {
+			allStopBtn.Tapped(new(fyne.PointEvent))
 		}),
 	)
 	desk.SetSystemTrayMenu(menu)

@@ -14,7 +14,7 @@ const (
 	Check            = "Check"
 	True             = "True"
 	False            = "False"
-	SelectAll        = "Select All"
+	CheckAll         = "Check All"
 	AllStart         = "All Start"
 	AllStop          = "All Stop"
 	OK               = "OK"

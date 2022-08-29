@@ -36,12 +36,6 @@ func main() {
 		systray.SetTooltip(ui.AppName)
 		systray.SetTitle(ui.AppName)
 	})
-	// close
-	App.Lifecycle().SetOnStopped(func() {
-		for _, window := range ui.LiveMap {
-			window.Close()
-		}
-	})
 	App.Run()
 	err := os.Unsetenv("FYNE_FONT")
 	if err != nil {

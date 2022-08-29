@@ -1,17 +1,20 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/cmd/fyne_settings/settings"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/xmsociety/adbutils"
-
 	"go-scrcpy-client/scrcpy"
+	"go-scrcpy-client/service"
 	"image"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -19,20 +22,30 @@ var (
 	headersMap = map[int]string{
 		0: "id",
 		1: "check",
-		2: "NickName",
-		3: "SerialNum",
-		4: "Run",
-		5: "RunMode",
+		2: "SerialNum",
+		3: "NickName",
+		4: "RunMode",
+		5: "Run",
 		6: "Operate",
 		7: "Other",
 	}
-	devicesList    = make([]map[int]interface{}, 0)
-	adb            = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
-	textMap        = make(map[string]map[string]string)
-	LiveMap        = make(map[string]fyne.Window)
-	themeSettingOn = false
-	editMap        = make(map[string]fyne.Window)
-	clientMap      = make(map[string]*scrcpy.Client)
+	devicesList      = make([]map[int]interface{}, 0)
+	adb              = adbutils.AdbClient{Host: "localhost", Port: 5037, SocketTime: 10}
+	textMap          = make(map[string]map[string]string)
+	LiveMap          = make(map[string]fyne.Window)
+	themeSettingOn   = false
+	editMap          = make(map[string]fyne.Window)
+	clientMap        = make(map[string]*scrcpy.Client)
+	clientCancelMap  = make(map[string]context.CancelFunc)
+	serviceMap       = make(map[string]*service.Service)
+	checkBoxMap      = make(map[string]*widget.Check)
+	serviceButtonMap = make(map[string]*widget.Button)
+	allCheck         = &widget.Check{}
+	allStartBtn      = &widget.Button{}
+	allStopBtn       = &widget.Button{}
+	OpLock           = sync.Mutex{}
+	maxWidthCol2     = 0
+	maxWidthCol3     = 0
 )
 
 func NewClient(sn string, VideoTransfer chan image.Image, ErrReceiver chan error) *scrcpy.Client {
@@ -88,11 +101,11 @@ func MainWindow(w fyne.Window) {
 		})
 	table := widget.NewTable(
 		func() (int, int) { return len(devicesList), len(headersMap) },
-		// create
+		// create table
 		func() fyne.CanvasObject {
 			return container.NewMax(
 				widget.NewLabel("placeholder"),
-				widget.NewCheckGroup([]string{""}, func(strings []string) { fmt.Println("check") }),
+				widget.NewCheck("", func(b bool) {}),
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
 				widget.NewLabel("placeholder"),
@@ -101,15 +114,29 @@ func MainWindow(w fyne.Window) {
 				NewButton(Show, func() { fmt.Println("Init Show") }),
 			)
 		},
-		// update
+		// update table
 		func(id widget.TableCellID, c fyne.CanvasObject) {
 			device := devicesList[id.Row]
 			objs, ok := c.(*fyne.Container)
 			if !ok {
 				return
 			}
+			tmpWidthCol2 := 0
+			tmpWidthCol3 := 0
 			for i := 0; i < len(objs.Objects); i++ {
 				obj := objs.Objects[i]
+				sn := devicesList[id.Row][2].(*widget.Label).Text
+				nickName := devicesList[id.Row][3].(*widget.Label).Text
+				baseWidthCol2 := len(sn) * 10
+				baseWidthCol3 := len(nickName) * 10
+
+				if baseWidthCol2 > tmpWidthCol2 {
+					tmpWidthCol2 = baseWidthCol2
+				}
+				if baseWidthCol3 > tmpWidthCol3 {
+					tmpWidthCol3 = baseWidthCol3
+				}
+
 				if i == id.Col {
 					switch obj.(type) {
 					case *widget.Label:
@@ -118,33 +145,68 @@ func MainWindow(w fyne.Window) {
 					case *widget.Button:
 						buttonObj := obj.(*widget.Button)
 						if id.Col == 7 {
-							sn := devicesList[id.Row][2].(*widget.Label).Text
 							buttonObj.SetText(textMap[sn][Show])
-						} else if id.Col == 5 {
-							sn := devicesList[id.Row][2].(*widget.Label).Text
+						} else if id.Col == 6 {
+							buttonObj.SetText(textMap[sn][Edit])
+						} else { // 5
 							buttonObj.SetText(textMap[sn][Run])
 						}
 						buttonObj.OnTapped = device[id.Col].(*widget.Button).OnTapped
-					case *widget.CheckGroup:
-						checkObj := obj.(*widget.CheckGroup)
-						checkObj.OnChanged = device[id.Col].(*widget.CheckGroup).OnChanged
+					case *widget.Check:
+						checkObj := obj.(*widget.Check)
+						checkObj.OnChanged = device[id.Col].(*widget.Check).OnChanged
+						checkObj.SetChecked(device[id.Col].(*widget.Check).Checked)
 					}
 					obj.Show()
 				} else {
 					obj.Hide()
 				}
 			}
-
+			maxWidthCol2 = tmpWidthCol2
+			maxWidthCol3 = tmpWidthCol3
 		})
-	for i := 0; i < len(headersMap); i++ {
-		headers.SetColumnWidth(i, 120)
-		table.SetColumnWidth(i, 120)
-	}
-	go ListenDevice(table)
-	selectRadio := widget.NewRadioGroup([]string{SelectAll}, func(s string) {})
-	allStartBtn := NewButton(AllStart, func() {})
-	allStopBtn := NewButton(AllStop, func() {})
-	bottom := container.NewHBox(selectRadio, allStartBtn, allStopBtn)
+	go listenDevice(table)
+	go autoAdjustTableWidth(headers, table)
+	// select all
+	allCheck = widget.NewCheck(CheckAll, func(b bool) {
+		for _, check := range checkBoxMap {
+			check.SetChecked(b)
+			table.Refresh()
+		}
+	})
+	// all check start
+	allStartBtn = NewButton(AllStart, func() {
+		startCount := 0
+		for sn, check := range checkBoxMap {
+			if check.Checked {
+				if textMap[sn][Run] == Run {
+					serviceButtonMap[sn].OnTapped()
+				}
+				startCount++
+			}
+		}
+		if startCount == 0 {
+			MessageError(errors.New("Nothing to Start!"))
+			Notification(AppName, "Nothing to Start!")
+		}
+	})
+	// all check stop
+	allStopBtn = NewButton(AllStop, func() {
+		stopCount := 0
+		for sn, check := range checkBoxMap {
+			if check.Checked {
+				if textMap[sn][Run] == Running {
+					serviceButtonMap[sn].OnTapped()
+				}
+				stopCount++
+			}
+		}
+		if stopCount == 0 {
+			MessageError(errors.New("Nothing to Stop!"))
+			Notification(AppName, "Nothing to Stop!")
+		}
+	})
+	bottom := container.NewHBox(allCheck, allStartBtn, allStopBtn)
 	w.SetContent(container.NewBorder(container.NewBorder(head, nil, nil, nil, headers), bottom, nil, nil, table))
 	w.SetMaster()
 }
@@ -158,82 +220,128 @@ func setCurrentTime(head *widget.Label) {
 	}
 }
 
-func ListenDevice(table *widget.Table) {
+func listenDevice(table *widget.Table) {
 	for {
-		newSn := []string{}
-		oldSn := []string{}
-		for _, device := range devicesList {
-			oldSn = append(oldSn, device[2].(*widget.Label).Text)
-		}
+		var refreshFlag bool
+		nowSn := []string{}
+		allSn := []string{}
+		devicesMap := map[string]map[int]interface{}{}
 		for index, d := range adb.DeviceList() {
-			newSn = append(newSn, d.Serial)
-			if ListIn(d.Serial) {
+			sn := d.Serial
+			nowSn = append(nowSn, sn)
+			if listIn(sn) {
 				continue
 			}
-			if _, ok := textMap[d.Serial]; !ok {
-				textMap[d.Serial] = make(map[string]string, 0)
-				textMap[d.Serial][Show] = Show
-				textMap[d.Serial][Edit] = Edit
-				textMap[d.Serial][Run] = Run
-				textMap[d.Serial][Check] = False
-				LiveMap[d.Serial] = nil
-				editMap[d.Serial] = nil
+			if _, ok := textMap[sn]; !ok {
+				refreshFlag = true
+				textMap[sn] = make(map[string]string, 0)
+				textMap[sn][Show] = Show
+				textMap[sn][Edit] = Edit
+				textMap[sn][Run] = Run
+				textMap[sn][Check] = False
+				LiveMap[sn] = nil
+				editMap[sn] = nil
 				ch := make(chan image.Image)
 				errCh := make(chan error)
-				clientMap[d.Serial] = NewClient(d.Serial, ch, errCh)
+				errChService := make(chan error)
+				clientMap[sn] = NewClient(sn, ch, errCh)
+				serviceMap[sn] = service.NewService(NewClient(sn, ch, errCh), errChService, "config")
 			}
+			checkWidget := widget.NewCheck("", func(b bool) {
+				checkCount := 0
+				checkBoxMap[sn].Checked = b
+				for _, check := range checkBoxMap {
+					if check.Checked {
+						checkCount++
+					}
+				}
+				allCheck.Checked = checkCount == len(checkBoxMap)
+				allCheck.Refresh()
+			})
+			checkBoxMap[sn] = checkWidget
+			runButton := NewButton(Run, func() {
+				// stop quick click
+				s := serviceMap[sn]
+				OpLock.Lock()
+				defer func() {
+					table.Refresh()
+					time.Sleep(time.Second * 1)
+					OpLock.Unlock()
+				}()
+				if textMap[sn][Run] == Run {
+					ctx, cancel := context.WithCancel(context.Background())
+					s.Client.Ctx = ctx
+					service.CancelMap[sn] = cancel
+					s.Start()
+					go serviceListener(s, table)
+					textMap[sn][Run] = Running
+					Notification(AppName, fmt.Sprintf("%v start run!", sn))
+				} else {
+					s.Stop()
+					textMap[sn][Run] = Run
+					Notification(AppName, fmt.Sprintf("%v stop!", sn))
+				}
 
+			})
+			serviceButtonMap[sn] = runButton
 			device := map[int]interface{}{
 				0: widget.NewLabel(fmt.Sprintf("%v", index)), // index
-				1: widget.NewCheckGroup([]string{""}, func(strings []string) {
-					func() {
-						fmt.Println("this is check  ", d.Serial)
-					}()
-				}), // button
-				2: widget.NewLabel(d.Serial),      // sn
-				3: widget.NewLabel("placeholder"), // nick_name
-				4: widget.NewLabel("placeholder"), // run mode
-				5: NewButton(Run, func() {
-					if textMap[d.Serial][Run] == Run {
-						textMap[d.Serial][Run] = Running
-						// TODO AI
-					} else {
-						textMap[d.Serial][Run] = Run
-					}
-					table.Refresh()
-				}), // run
+				1: checkWidget,                               // check
+				2: widget.NewLabel(sn),                       // sn
+				3: widget.NewLabel("placeholder"),            // nick_name
+				4: widget.NewLabel("placeholder"),            // run mode
+				5: runButton,                                 // run
 				6: NewButton(Edit, func() {
-					if textMap[d.Serial][Edit] == Edit {
-						textMap[d.Serial][Edit] = EditIng
-						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Edit))
-						w.SetContent(EditWindow(d.Serial, w))
-						w.Show()
+					// stop quick click
+					OpLock.Lock()
+					defer func() {
+						time.Sleep(time.Second * 1)
+						OpLock.Unlock()
+					}()
+					if textMap[sn][Edit] == Edit {
+						textMap[sn][Edit] = EditIng
+						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", sn, Edit))
+						w.SetContent(EditWindow(sn, w))
 						w.SetOnClosed(func() {
-							textMap[d.Serial][Edit] = Edit
+							textMap[sn][Edit] = Edit
 							table.Refresh()
 						})
-						editMap[d.Serial] = w
+						w.Show()
+						editMap[sn] = w
 					} else {
-						editMap[d.Serial].Close()
-						textMap[d.Serial][Edit] = Edit
+						editMap[sn].Close()      // page
+						textMap[sn][Edit] = Edit // text
 					}
 					table.Refresh()
 				}),
 				7: NewButton(Show, func() {
-					if textMap[d.Serial][Show] == Show {
-						textMap[d.Serial][Show] = Hide
-						client := clientMap[d.Serial]
-						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", d.Serial, Live))
+					// stop quick click
+					OpLock.Lock()
+					defer func() {
+						time.Sleep(time.Second * 1)
+						OpLock.Unlock()
+					}()
+					if textMap[sn][Show] == Show {
+						textMap[sn][Show] = Hide
+						client := clientMap[sn]
+						ctx, cancel := context.WithCancel(context.Background())
+						clientCancelMap[sn] = cancel
+						clientMap[sn].Ctx = ctx
+						w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s %s", sn, Live))
 						w.SetContent(ScreenWindow(w, client))
 						w.Show()
 						w.SetOnClosed(func() {
-							textMap[d.Serial][Show] = Show
-							client.Stop()
-							table.Refresh()
+							textMap[sn][Show] = Show
+							table.Refresh() // need Refresh
 						})
-						LiveMap[d.Serial] = w
+						//stop close before Resize
+						w.SetCloseIntercept(func() {
+							FakeFunc(w, sn)
+						})
+						LiveMap[sn] = w
 					} else {
-						LiveMap[d.Serial].Close()
+						w := LiveMap[sn]
+						FakeFunc(w, sn)
 						textMap[d.Serial][Show] = Show
 					}
 					table.Refresh()
@@ -241,44 +349,93 @@ func ListenDevice(table *widget.Table) {
 			}
 			devicesList = append(devicesList, device)
 		}
-		sort.Slice(devicesList, func(i, j int) bool {
-			b, _ := strconv.Atoi(devicesList[i][0].(*widget.Label).Text)
-			f, _ := strconv.Atoi(devicesList[j][0].(*widget.Label).Text)
-			return b < f
-		})
-		if len(newSn) == 0 {
-			devicesList = []map[int]interface{}{}
+		// now all sn
+		for _, device := range devicesList {
+			sn := device[2].(*widget.Label).Text
+			devicesMap[sn] = device
+			allSn = append(allSn, sn)
 		}
-		var refreshFlag bool
-		sort.Slice(oldSn, func(i, j int) bool {
-			return oldSn[i] < oldSn[j]
-		})
-		sort.Slice(newSn, func(i, j int) bool {
-			return newSn[i] < newSn[j]
-		})
-
-		if len(oldSn) != len(newSn) {
+		toDeleteSn := Minus(allSn, nowSn)
+		updateMap(toDeleteSn)
+		if len(toDeleteSn) > 0 {
+			tmp := []map[int]interface{}{}
 			refreshFlag = true
-		} else {
-			for i := 0; i < len(newSn); i++ {
-				if newSn[i] != oldSn[i] {
-					refreshFlag = true
+			for _, sn := range toDeleteSn {
+				if listIn(sn) {
+					delete(devicesMap, sn)
 				}
 			}
+			for _, device := range devicesMap {
+				tmp = append(tmp, device)
+			}
+			sort.Slice(tmp, func(i, j int) bool {
+				b, _ := strconv.Atoi(devicesList[i][0].(*widget.Label).Text)
+				f, _ := strconv.Atoi(devicesList[j][0].(*widget.Label).Text)
+				return b < f
+			})
+			devicesList = tmp
 		}
-
+		if len(nowSn) == 0 {
+			refreshFlag = true
+			devicesList = []map[int]interface{}{}
+		}
 		if refreshFlag {
+			sort.Slice(devicesList, func(i, j int) bool {
+				b, _ := strconv.Atoi(devicesList[i][0].(*widget.Label).Text)
+				f, _ := strconv.Atoi(devicesList[j][0].(*widget.Label).Text)
+				return b < f
+			})
+			for i := 0; i < len(devicesList); i++ {
+				devicesList[i][0].(*widget.Label).SetText(fmt.Sprintf("%v", i))
+			}
 			table.Refresh()
 		}
 		time.Sleep(time.Second * 1)
 	}
 }
 
-func ListIn(item string) (in bool) {
+func autoAdjustTableWidth(table *widget.Table, headers *widget.Table) {
+	for {
+		select {
+		case <-time.Tick(time.Millisecond * 500):
+			table.SetColumnWidth(2, float32(maxWidthCol2))
+			table.SetColumnWidth(3, float32(maxWidthCol3))
+			headers.SetColumnWidth(2, float32(maxWidthCol2))
+			headers.SetColumnWidth(3, float32(maxWidthCol3))
+		}
+	}
+}
+func listIn(item string) (in bool) {
 	for _, dMap := range devicesList {
 		if item == dMap[2].(*widget.Label).Text {
 			return true
 		}
 	}
 	return
+}
+
+func updateMap(toDeleteSn []string) {
+	for _, sn := range toDeleteSn {
+		delete(textMap, sn)
+		delete(LiveMap, sn)
+		delete(editMap, sn)
+		delete(clientMap, sn)
+		delete(clientCancelMap, sn)
+		delete(serviceMap, sn)
+		delete(service.CancelMap, sn)
+		delete(checkBoxMap, sn)
+		delete(serviceButtonMap, sn)
+	}
+}
+
+func serviceListener(s *service.Service, table *widget.Table) {
+	for {
+		errText := <-s.ErrReceiver
+		MessageError(errors.New(fmt.Sprintf("%s %s", s.Client.Device.Serial, errText)))
+		s := serviceMap[s.Client.Device.Serial]
+		s.Stop()
+		textMap[s.Client.Device.Serial][Run] = Run
+		Notification(AppName, fmt.Sprintf("%v stop!", s.Client.Device.Serial))
+		table.Refresh()
+	}
 }

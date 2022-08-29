@@ -3,6 +3,7 @@ package scrcpy
 import "C"
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -67,29 +68,46 @@ type Client struct {
 	ErrReceiver           chan error
 	Resolution            resolution
 	Control               ControlSender
+	Ctx                   context.Context
+	Lock                  sync.Mutex
 }
 
-func readFully(conn net.Conn, n int) []byte {
+type ReadDeadLiner interface {
+	SetReadDeadline(t time.Time) error
+}
+
+// SetReadDeadlineOnCancel graceful close socket
+func (client *Client) SetReadDeadlineOnCancel() {
+	go func() {
+		<-client.Ctx.Done()
+		now := time.Now()
+		_ = client.videoSocket.SetReadDeadline(now)
+		_ = client.controlSocket.SetReadDeadline(now)
+		_ = client.serverStream.Conn.SetReadDeadline(now)
+		client.Stop()
+	}()
+}
+
+func readFully(conn net.Conn, n int) ([]byte, error) {
 	t := 0
+	var err error
 	buffer := make([]byte, n)
 	result := bytes.NewBuffer(nil)
 	for t < n {
 		length, err := conn.Read(buffer[0:n])
-		if length == 0 || err != nil {
-			log.Println(err.Error())
-			break
-		}
-		result.Write(buffer[0:length])
-		t += length
 		if err != nil {
 			if err == io.EOF {
 				break
 			} else {
 				log.Println(err.Error())
 			}
+			return result.Bytes(), err
 		}
+		result.Write(buffer[0:length])
+		t += length
+
 	}
-	return result.Bytes()
+	return result.Bytes(), err
 }
 
 func (client *Client) deployServer() bool {
@@ -127,7 +145,7 @@ func (client *Client) deployServer() bool {
 	serverStream := client.Device.Shell(strings.Join(cmd, " "), true, 3)
 	client.serverStream = *serverStream.(*adbutils.AdbConnection)
 	//res := client.serverStream.ReadString(100) wait serverStream ready
-	time.Sleep(time.Millisecond * 400)
+	time.Sleep(time.Millisecond * 500) // adjust when poor network
 	return true
 }
 
@@ -144,30 +162,30 @@ func (client *Client) initServerConnection() bool {
 		}
 	}
 	if client.videoSocket == nil {
-		client.ErrReceiver <- errors.New("Failed to connect scrcpy-server after 3 seconds")
-		log.Println("Failed to connect scrcpy-server after 3 seconds")
+		client.ErrReceiver <- errors.New("Failed to connect scrcpy-server after 3 seconds please wait a moment to retry!")
+		log.Printf("%v: Failed to connect scrcpy-server after 3 seconds", client.Device.Serial)
 		return false
 	}
-	buf := readFully(client.videoSocket, 1)
+	buf, _ := readFully(client.videoSocket, 1)
 	if buf == nil || len(buf) == 0 || buf[0] != []byte("\x00")[0] {
-		client.ErrReceiver <- errors.New("Did not receive Dummy Byte!")
-		log.Println("Did not receive Dummy Byte!")
+		client.ErrReceiver <- errors.New("Did not receive Dummy Byte! please wait a moment to retry!")
+		log.Printf("%v: Did not receive Dummy Byte!", client.Device.Serial)
 		return false
 	}
 	client.controlSocket = client.Device.CreateConnection(adbutils.LOCALABSTRACT, "scrcpy")
-	nameBuf := readFully(client.videoSocket, 64)
+	nameBuf, _ := readFully(client.videoSocket, 64)
 	if nameBuf == nil || len(nameBuf) == 0 || strings.TrimSuffix(string(nameBuf), "\x00") == "" {
-		client.ErrReceiver <- errors.New(fmt.Sprintf("Did not receive Device Name! err: %v", nameBuf))
-		log.Println("Did not receive Device Name! err: ", nameBuf)
+		client.ErrReceiver <- errors.New(fmt.Sprintf("Did not receive Device Name! err: %v please wait a moment to retry!", nameBuf))
+		log.Printf("%v: Did not receive Device Name! err", client.Device.Serial)
 		return false
 	}
-	resBuf := readFully(client.videoSocket, 4)
+	resBuf, _ := readFully(client.videoSocket, 4)
 	r := bytes.NewReader(resBuf)
 
 	resolutionTmp := resolution{}
 	if err := binary.Read(r, binary.BigEndian, &resolutionTmp); err != nil {
-		client.ErrReceiver <- errors.New(fmt.Sprintf("binary.Read failed:: %v", err))
-		fmt.Println("binary.Read failed:", err)
+		client.ErrReceiver <- errors.New(fmt.Sprintf("binary.Read failed: %v, please wait a moment to retry!", err))
+		log.Printf("%v binary.Read failed:", err.Error())
 		return false
 	}
 	client.Resolution = resolutionTmp
@@ -177,11 +195,15 @@ func (client *Client) initServerConnection() bool {
 		H:           int(client.Resolution.H),
 		Lock:        sync.Mutex{},
 	}
-	log.Println(client.Resolution)
+	log.Printf("%v: client init W, H: %v", client.Device.Serial, client.Resolution)
 	return true
 }
 
 func (client *Client) Start() {
+	defer func() {
+		log.Printf("%v: goroutine client.start quit!", client.Device.Serial)
+		client.Stop()
+	}()
 	client.Alive = true
 	if !client.deployServer() {
 		return
@@ -195,7 +217,7 @@ func (client *Client) Start() {
 
 func (client *Client) Stop() {
 	client.Alive = false
-	if &client.serverStream != nil {
+	if client.serverStream.Conn != nil {
 		client.serverStream.Close()
 	}
 	if client.controlSocket != nil {
@@ -209,44 +231,46 @@ func (client *Client) Stop() {
 func (client *Client) streamLoop() {
 	// thanks https://github.com/mike1808/h264decoder totaly what I want
 	codec, err := h264.NewDecoder(h264.PixelFormatBGR)
+	defer func() {
+		codec.Close()
+		log.Printf("%v: function streamLoop quit!", client.Device.Serial)
+	}()
 	if err != nil {
-		client.ErrReceiver <- err
 		log.Println(err.Error())
 		return
 	}
-	// noqa 看起来不错
+	client.SetReadDeadlineOnCancel()
 	// TODO need fix -> could not determine kind of name for C.sws_addVec
 	for client.Alive {
-		buf := readFully(client.videoSocket, 0x10000)
+		buf, err := readFully(client.videoSocket, 1024)
+		if err != nil {
+			return
+		}
 		frames, err := codec.Decode(buf)
 		if err != nil {
-			client.ErrReceiver <- err
 			log.Println(err.Error())
 			return
-
 		}
-		if len(frames) == 0 {
-			log.Println("no frames")
-			break
-		} else {
-			for _, frame := range frames {
-				client.Resolution = resolution{W: uint16(frame.Width), H: uint16(frame.Height)}
-				client.Control.W = frame.Width
-				client.Control.H = frame.Height
-				imgCv, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
-				if imgCv.Empty() {
-					log.Println("empty")
-					continue
-				}
-				imageRGB, err := imgCv.ToImage()
-				if err != nil {
-					log.Println(err.Error())
-					continue
-				}
-				client.VideoSender <- imageRGB
+		for _, frame := range frames {
+			client.Resolution = resolution{W: uint16(frame.Width), H: uint16(frame.Height)}
+			client.Control.W = frame.Width
+			client.Control.H = frame.Height
+			imgCv, _ := gocv.NewMatFromBytes(frame.Height, frame.Width, gocv.MatTypeCV8UC3, frame.Data)
+			if imgCv.Empty() {
+				continue
 			}
-			log.Printf(fmt.Sprintf("found %d frames", len(frames)))
-			time.Sleep(time.Microsecond * 100)
+			imageRGB, err := imgCv.ToImage()
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
+			if !client.Alive {
+				log.Printf("%v: client not alive stop send imageRGB!", client.Device.Serial)
+				return
+			}
+			client.VideoSender <- imageRGB
 		}
+		time.Sleep(time.Microsecond * 100)
+
 	}
 }
