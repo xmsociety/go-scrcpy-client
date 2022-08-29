@@ -43,7 +43,7 @@ var (
 	allCheck         = &widget.Check{}
 	allStartBtn      = &widget.Button{}
 	allStopBtn       = &widget.Button{}
-	OpLock           = sync.Mutex{}
+	opLock           = sync.Mutex{}
 	maxWidthCol2     = 0
 	maxWidthCol3     = 0
 )
@@ -262,11 +262,11 @@ func listenDevice(table *widget.Table) {
 			runButton := NewButton(Run, func() {
 				// stop quick click
 				s := serviceMap[sn]
-				OpLock.Lock()
+				opLock.Lock()
 				defer func() {
 					table.Refresh()
 					time.Sleep(time.Second * 1)
-					OpLock.Unlock()
+					opLock.Unlock()
 				}()
 				if textMap[sn][Run] == Run {
 					ctx, cancel := context.WithCancel(context.Background())
@@ -293,10 +293,10 @@ func listenDevice(table *widget.Table) {
 				5: runButton,                                 // run
 				6: NewButton(Edit, func() {
 					// stop quick click
-					OpLock.Lock()
+					opLock.Lock()
 					defer func() {
 						time.Sleep(time.Second * 1)
-						OpLock.Unlock()
+						opLock.Unlock()
 					}()
 					if textMap[sn][Edit] == Edit {
 						textMap[sn][Edit] = EditIng
@@ -316,10 +316,10 @@ func listenDevice(table *widget.Table) {
 				}),
 				7: NewButton(Show, func() {
 					// stop quick click
-					OpLock.Lock()
+					opLock.Lock()
 					defer func() {
 						time.Sleep(time.Second * 1)
-						OpLock.Unlock()
+						opLock.Unlock()
 					}()
 					if textMap[sn][Show] == Show {
 						textMap[sn][Show] = Hide
@@ -405,6 +405,7 @@ func autoAdjustTableWidth(table *widget.Table, headers *widget.Table) {
 		}
 	}
 }
+
 func listIn(item string) (in bool) {
 	for _, dMap := range devicesList {
 		if item == dMap[2].(*widget.Label).Text {

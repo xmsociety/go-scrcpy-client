@@ -27,6 +27,7 @@ func (s *Service) Start() {
 	go s.Client.Start()
 	go s.handler()
 }
+
 func (s *Service) handler() {
 	defer func() {
 		log.Printf("[run] %v: goroutine handler quit！", s.Client.Device.Serial)

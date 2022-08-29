@@ -31,10 +31,9 @@ func main() {
 	})
 
 	mainWindow.Show()
-	// start
+
 	App.Lifecycle().SetOnStarted(func() {
 		systray.SetTooltip(ui.AppName)
-		systray.SetTitle(ui.AppName)
 	})
 	App.Run()
 	err := os.Unsetenv("FYNE_FONT")
