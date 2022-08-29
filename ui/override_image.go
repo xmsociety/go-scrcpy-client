@@ -28,7 +28,7 @@ func NewOverRideImageWidget(img image.Image, client *scrcpy.Client) *OverRideIma
 
 // Tapped 左键点击
 func (o *OverRideImageWidget) Tapped(e *fyne.PointEvent) {
-	fmt.Println("Tapped")
+	fmt.Println("Tapped", e.Position, e.AbsolutePosition)
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -44,6 +44,7 @@ func (o *OverRideImageWidget) Tapped(e *fyne.PointEvent) {
 
 // DoubleTapped 左键双击
 func (o *OverRideImageWidget) DoubleTapped(e *fyne.PointEvent) {
+	fmt.Println("DoubleTapped", e.Position, e.AbsolutePosition)
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -53,11 +54,12 @@ func (o *OverRideImageWidget) DoubleTapped(e *fyne.PointEvent) {
 		log.Println("o.Client.Control.ControlConn is nil")
 		return
 	}
-	fmt.Println("DoubleTapped")
 }
 
 // TappedSecondary 右键点击
 func (o *OverRideImageWidget) TappedSecondary(e *fyne.PointEvent) {
+	fmt.Println("TappedSecondary", e.Position, e.AbsolutePosition)
+
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println(err)
@@ -67,5 +69,4 @@ func (o *OverRideImageWidget) TappedSecondary(e *fyne.PointEvent) {
 		log.Println("o.Client.Control.ControlConn is nil")
 		return
 	}
-	fmt.Println("TappedSecondary")
 }

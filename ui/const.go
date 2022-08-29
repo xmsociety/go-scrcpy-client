@@ -4,6 +4,7 @@ const (
 	AppName          = "go scrcpy"
 	Width            = 140 * 7
 	Height           = 500
+	MaxWidth         = 640
 	Show             = "Show"
 	Hide             = "Hide"
 	Live             = "Live"

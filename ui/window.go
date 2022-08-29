@@ -55,7 +55,7 @@ func NewClient(sn string, VideoTransfer chan image.Image, ErrReceiver chan error
 	snNtid := adbutils.SerialNTransportID{
 		Serial: sn,
 	}
-	return &scrcpy.Client{Device: adb.Device(snNtid), MaxWith: 800, Bitrate: 5000000, VideoSender: VideoTransfer, ErrReceiver: ErrReceiver}
+	return &scrcpy.Client{Device: adb.Device(snNtid), MaxWith: MaxWidth, Bitrate: 5000000, VideoSender: VideoTransfer, ErrReceiver: ErrReceiver}
 }
 
 func MainWindow(w fyne.Window) {
