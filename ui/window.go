@@ -44,8 +44,8 @@ var (
 	allStartBtn      = &widget.Button{}
 	allStopBtn       = &widget.Button{}
 	opLock           = sync.Mutex{}
-	maxWidthCol2     = 0
-	maxWidthCol3     = 0
+	maxWidthCol2     = 150
+	maxWidthCol3     = 150
 )
 
 func NewClient(sn string, VideoTransfer chan image.Image, ErrReceiver chan error) *scrcpy.Client {
