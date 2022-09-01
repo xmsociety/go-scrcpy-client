@@ -6,7 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.2.3
 	fyne.io/systray v1.10.1-0.20220621085403-9a2652634e93
 	github.com/ailumiyana/goav-incr v0.1.0
-	github.com/xmsociety/adbutils v0.0.0-20220824193335-22552ec47ae5
+	github.com/xmsociety/adbutils v0.0.4
 	gocv.io/x/gocv v0.31.0
 )
 
