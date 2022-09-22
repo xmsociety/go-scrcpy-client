@@ -17,6 +17,7 @@ Please check scrcpy server 1.20 source code: [Link](https://github.com/Genymobil
 ## env 
 ```bash
 require ffmpeg < 5
+require https://github.com/xmsociety/adbutils[adbutils]
 
 export FFMPEG_ROOT=/usr/local/opt/ffmpeg@4
 export CGO_LDFLAGS="-L$FFMPEG_ROOT/lib/ -lavcodec -lavformat -lavutil -lswscale -lswresample -lavdevice -lavfilter"
@@ -31,15 +32,7 @@ export PKG_CONFIG_PATH="/usr/local/opt/ffmpeg@4/lib/pkgconfig"
 There is a helpful mobile simulation mode that gives a hint of how your app would work on a mobile device:
 
 ```bash
-$ go run -tags mobile main.go
-```
-Another option is to use fyne command, see Packaging for mobile.
-
-
-## build
-```bash
-go run main.go
--ldflags -H=windowsgui
+go run -tags mobile main.go
 ```
 
 ## screenshot
