@@ -41,3 +41,8 @@ Another option is to use fyne command, see Packaging for mobile.
 go run main.go
 -ldflags -H=windowsgui
 ```
+
+## screenshot
+![](img/main.png)
+![](img/live.png)
+![](img/theme.png)
