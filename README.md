@@ -36,6 +36,6 @@ go run -tags mobile main.go
 ```
 
 ## screenshot
-![](img/main.png)
-![](img/live.png)
-![](img/theme.png)
+![](https://cdn.mongona.com/github/xmsociety/main.png)
+![](https://cdn.mongona.com/github/xmsociety/live.png)
+![](https://cdn.mongona.com/github/xmsociety/theme.png)
